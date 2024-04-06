@@ -27,10 +27,7 @@ define GoCompiler/Default/Make
 		cd "$(1)/src" ; \
 		$(if $(2),GOROOT_FINAL="$(2)/lib/go-$(3)") \
 		$(4) \
-		$(BASH) make.bash \
-		$(if $(findstring s,$(OPENWRT_VERBOSE)),-v) \
-		--no-banner \
-		; \
+		$(BASH) make.bash --no-banner ; \
 	)
 endef
 
@@ -75,9 +72,6 @@ define GoCompiler/Default/Install/Bin
   else
 	$(INSTALL_BIN) -p "$(1)/bin/$(4)"/* "$(2)/lib/go-$(3)/bin/"
   endif
-
-	$(INSTALL_DIR) "$(2)/lib/go-$(3)/pkg"
-	$(CP) "$(1)/pkg/$(4)$(if $(5),_$(5))" "$(2)/lib/go-$(3)/pkg/"
 
 	$(INSTALL_DIR) "$(2)/lib/go-$(3)/pkg/tool/$(4)"
 	$(INSTALL_BIN) -p "$(1)/pkg/tool/$(4)"/* "$(2)/lib/go-$(3)/pkg/tool/$(4)/"

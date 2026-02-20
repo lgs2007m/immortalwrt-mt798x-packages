@@ -7,8 +7,8 @@
 
 include $(TOPDIR)/rules.mk
 
-GO_VERSION_MAJOR_MINOR:=1.22
-GO_VERSION_PATCH:=5
+GO_VERSION_MAJOR_MINOR:=1.24
+GO_VERSION_PATCH:=13
 
 PKG_NAME:=golang
 PKG_VERSION:=$(GO_VERSION_MAJOR_MINOR)$(if $(GO_VERSION_PATCH),.$(GO_VERSION_PATCH))
@@ -16,12 +16,11 @@ PKG_RELEASE:=1
 
 GO_SOURCE_URLS:=https://dl.google.com/go/ \
                 https://mirrors.ustc.edu.cn/golang/ \
-                https://mirrors.nju.edu.cn/golang/ \
-                https://go.dev/dl/
+                https://mirrors.nju.edu.cn/golang/
 
 PKG_SOURCE:=go$(PKG_VERSION).src.tar.gz
 PKG_SOURCE_URL:=$(GO_SOURCE_URLS)
-PKG_HASH:=ac9c723f224969aee624bc34fd34c9e13f2a212d75c71c807de644bb46e112f6
+PKG_HASH:=639a6204c2486b137df1eb6e78ee3ed038f9877d0e4b5a465e796a2153f858d7
 
 PKG_MAINTAINER:=Jeffery To <jeffery.to@gmail.com>
 PKG_LICENSE:=BSD-3-Clause
@@ -35,7 +34,6 @@ PKG_BUILD_FLAGS:=no-mips16
 
 PKG_GO_PREFIX:=/usr
 PKG_GO_VERSION_ID:=$(GO_VERSION_MAJOR_MINOR)
-PKG_GO_ROOT:=$(PKG_GO_PREFIX)/lib/go-$(PKG_GO_VERSION_ID)
 
 HOST_BUILD_DIR:=$(BUILD_DIR_HOST)/go-$(PKG_VERSION)
 HOST_BUILD_PARALLEL:=1
@@ -66,6 +64,7 @@ HOST_GO_VALID_OS_ARCH:= \
   wasip1_wasm \
   \
   freebsd_riscv64 \
+  openbsd_riscv64 \
   \
   linux_ppc64 linux_ppc64le \
   linux_mips linux_mipsle linux_mips64 linux_mips64le \
@@ -73,9 +72,18 @@ HOST_GO_VALID_OS_ARCH:= \
   \
   openbsd_mips64
 
-BOOTSTRAP_SOURCE:=go1.4-bootstrap-20171003.tar.gz
+ifeq ($(HOST_ARCH),x86_64)
+	PKG_ARCH:=amd64
+	BOOTSTRAP_HASH:=999805bed7d9039ec3da1a53bfbcafc13e367da52aa823cb60b68ba22d44c616
+endif
+
+ifeq ($(HOST_ARCH),aarch64)
+	PKG_ARCH:=arm64
+	BOOTSTRAP_HASH:=c15fa895341b8eaf7f219fada25c36a610eb042985dc1a912410c1c90098eaf2
+endif
+
+BOOTSTRAP_SOURCE:=go1.22.6.linux-$(PKG_ARCH).tar.gz
 BOOTSTRAP_SOURCE_URL:=$(GO_SOURCE_URLS)
-BOOTSTRAP_HASH:=f4ff5b5eb3a3cae1c993723f3eab519c5bae18866b5e5f96fe1102f0cb5c3e52
 
 BOOTSTRAP_BUILD_DIR:=$(HOST_BUILD_DIR)/.go_bootstrap
 
@@ -90,18 +98,6 @@ BOOTSTRAP_GO_VALID_OS_ARCH:= \
                  solaris_amd64 \
   windows_386    windows_amd64
 
-BOOTSTRAP_1_17_SOURCE:=go1.17.13.src.tar.gz
-BOOTSTRAP_1_17_SOURCE_URL:=$(GO_SOURCE_URLS)
-BOOTSTRAP_1_17_HASH:=a1a48b23afb206f95e7bbaa9b898d965f90826f6f1d1fc0c1d784ada0cd300fd
-
-BOOTSTRAP_1_17_BUILD_DIR:=$(HOST_BUILD_DIR)/.go_bootstrap_1.17
-
-BOOTSTRAP_1_20_SOURCE:=go1.20.14.src.tar.gz
-BOOTSTRAP_1_20_SOURCE_URL:=$(GO_SOURCE_URLS)
-BOOTSTRAP_1_20_HASH:=1aef321a0e3e38b7e91d2d7eb64040666cabdcc77d383de3c9522d0d69b67f4e
-
-BOOTSTRAP_1_20_BUILD_DIR:=$(HOST_BUILD_DIR)/.go_bootstrap_1.20
-
 include $(INCLUDE_DIR)/host-build.mk
 include $(INCLUDE_DIR)/package.mk
 include ../golang-compiler.mk
@@ -110,8 +106,6 @@ include ../golang-package.mk
 PKG_UNPACK:=$(HOST_TAR) -C "$(PKG_BUILD_DIR)" --strip-components=1 -xzf "$(DL_DIR)/$(PKG_SOURCE)"
 HOST_UNPACK:=$(HOST_TAR) -C "$(HOST_BUILD_DIR)" --strip-components=1 -xzf "$(DL_DIR)/$(PKG_SOURCE)"
 BOOTSTRAP_UNPACK:=$(HOST_TAR) -C "$(BOOTSTRAP_BUILD_DIR)" --strip-components=1 -xzf "$(DL_DIR)/$(BOOTSTRAP_SOURCE)"
-BOOTSTRAP_1_17_UNPACK:=$(HOST_TAR) -C "$(BOOTSTRAP_1_17_BUILD_DIR)" --strip-components=1 -xzf "$(DL_DIR)/$(BOOTSTRAP_1_17_SOURCE)"
-BOOTSTRAP_1_20_UNPACK:=$(HOST_TAR) -C "$(BOOTSTRAP_1_20_BUILD_DIR)" --strip-components=1 -xzf "$(DL_DIR)/$(BOOTSTRAP_1_20_SOURCE)"
 
 # don't strip ELF executables in test data
 RSTRIP:=:
@@ -207,39 +201,6 @@ ifeq ($(BOOTSTRAP_ROOT_DIR),)
 endif
 
 
-# Bootstrap 1.17
-
-define Download/golang-bootstrap-1.17
-  FILE:=$(BOOTSTRAP_1_17_SOURCE)
-  URL:=$(BOOTSTRAP_1_17_SOURCE_URL)
-  HASH:=$(BOOTSTRAP_1_17_HASH)
-endef
-$(eval $(call Download,golang-bootstrap-1.17))
-
-define Bootstrap-1.17/Prepare
-	mkdir -p "$(BOOTSTRAP_1_17_BUILD_DIR)" && $(BOOTSTRAP_1_17_UNPACK) ;
-endef
-Hooks/HostPrepare/Post+=Bootstrap-1.17/Prepare
-
-$(eval $(call GoCompiler/AddProfile,Bootstrap-1.17,$(BOOTSTRAP_1_17_BUILD_DIR),,bootstrap-1.17,$(GO_HOST_OS_ARCH)))
-
-
-# Bootstrap 1.20
-
-define Download/golang-bootstrap-1.20
-  FILE:=$(BOOTSTRAP_1_20_SOURCE)
-  URL:=$(BOOTSTRAP_1_20_SOURCE_URL)
-  HASH:=$(BOOTSTRAP_1_20_HASH)
-endef
-$(eval $(call Download,golang-bootstrap-1.20))
-
-define Bootstrap-1.20/Prepare
-	mkdir -p "$(BOOTSTRAP_1_20_BUILD_DIR)" && $(BOOTSTRAP_1_20_UNPACK) ;
-endef
-Hooks/HostPrepare/Post+=Bootstrap-1.20/Prepare
-
-$(eval $(call GoCompiler/AddProfile,Bootstrap-1.20,$(BOOTSTRAP_1_20_BUILD_DIR),,bootstrap-1.20,$(GO_HOST_OS_ARCH)))
-
 # Host
 
 ifeq ($(GO_HOST_PIE_SUPPORTED),1)
@@ -258,30 +219,14 @@ HOST_GO_VARS= \
 	CC="$(HOSTCC_NOCACHE)" \
 	CXX="$(HOSTCXX_NOCACHE)"
 
-define Host/Configure
+define Host/Compile
 	$(call GoCompiler/Bootstrap/CheckHost,$(BOOTSTRAP_GO_VALID_OS_ARCH))
 	$(call GoCompiler/Host/CheckHost,$(HOST_GO_VALID_OS_ARCH))
 
 	mkdir -p "$(GO_BUILD_CACHE_DIR)"
-endef
-
-define Host/Compile
-	$(call GoCompiler/Bootstrap/Make, \
-		$(HOST_GO_VARS) \
-	)
-
-	$(call GoCompiler/Bootstrap-1.17/Make, \
-		GOROOT_BOOTSTRAP="$(BOOTSTRAP_ROOT_DIR)" \
-		$(HOST_GO_VARS) \
-	)
-
-	$(call GoCompiler/Bootstrap-1.20/Make, \
-		GOROOT_BOOTSTRAP="$(BOOTSTRAP_1_17_BUILD_DIR)" \
-		$(HOST_GO_VARS) \
-	)
 
 	$(call GoCompiler/Host/Make, \
-		GOROOT_BOOTSTRAP="$(BOOTSTRAP_1_20_BUILD_DIR)" \
+		GOROOT_BOOTSTRAP="$(BOOTSTRAP_ROOT_DIR)" \
 		$(if $(HOST_GO_ENABLE_PIE),GO_LDFLAGS="-buildmode pie") \
 		$(HOST_GO_VARS) \
 	)
@@ -355,19 +300,18 @@ PKG_GO_LDFLAGS= \
 	-extldflags '$(patsubst -z%,-Wl$(comma)-z$(comma)%,$(TARGET_LDFLAGS))' \
 	$(if $(CONFIG_NO_STRIP)$(CONFIG_DEBUG),,-s -w)
 
+# setting -trimpath is not necessary here because the paths inside the
+# compiler binary are relative to GOROOT_FINAL (PKG_GO_ROOT), which is
+# static / not dependent on the build environment
 PKG_GO_INSTALL_ARGS= \
-	-buildvcs=false \
-	-trimpath \
 	-ldflags "all=$(PKG_GO_LDFLAGS)" \
 	$(if $(PKG_GO_GCFLAGS),-gcflags "all=$(PKG_GO_GCFLAGS)") \
 	$(if $(PKG_GO_ASMFLAGS),-asmflags "all=$(PKG_GO_ASMFLAGS)") \
 	$(if $(filter $(GO_PKG_ENABLE_PIE),1),-buildmode pie)
 
-define Build/Configure
-	mkdir -p "$(GO_BUILD_CACHE_DIR)"
-endef
-
 define Build/Compile
+	mkdir -p "$(GO_BUILD_CACHE_DIR)"
+
 	@echo "Building target Go first stage"
 
 	$(call GoCompiler/Package/Make, \
@@ -395,7 +339,6 @@ define Build/Compile
 		cd "$(PKG_BUILD_DIR)/bin" ; \
 		export $(GO_PKG_TARGET_VARS) ; \
 		$(CP) go go-host ; \
-		GOROOT_FINAL="$(PKG_GO_ROOT)" \
 		GO_GCC_HELPER_CC="$(TARGET_CC)" \
 		GO_GCC_HELPER_CXX="$(TARGET_CXX)" \
 		$(PKG_GO_VARS) \
